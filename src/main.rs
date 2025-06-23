@@ -1,13 +1,8 @@
+use dotenv::dotenv;
 use std::env;
 use std::error::Error;
-use dotenv::dotenv;
 
-use serenity::{
-    async_trait,
-    model::channel::Message,
-    model::gateway::Ready,
-    prelude::*,
-};
+use serenity::{async_trait, model::channel::Message, model::gateway::Ready, prelude::*};
 
 struct Handler;
 
@@ -28,7 +23,7 @@ impl EventHandler for Handler {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>>{
+async fn main() -> Result<(), Box<dyn Error>> {
     dotenv()?;
     let token = env::var("DISCORD_TOKEN")?;
     let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
