@@ -27,12 +27,18 @@ impl EventHandler for Handler {
             return;
         }
 
-        msg.channel_id.broadcast_typing(&ctx.http).await.expect("typing error");
+        if let Err(why) = msg.channel_id.broadcast_typing(&ctx.http).await {
+            println!("Error in broadcast_typing: {:?}", why);
+            return;
+        }
+
         // let reply = "RustからHello, worldじゅう！";
         let mut route = self.client.generate_content("gemini-2.5-flash");
         route.message(&msg.content);
-        let response = route.await.expect("request error");
-        let text = response.candidates[0].content.parts[0].text.clone();
+        let text = match route.await {
+            Err(why) => Some(format!("エラーじゅう：{}", why)),
+            Ok(response) => response.candidates[0].content.parts[0].text.clone(),
+        };
 
         if let Some(reply) = text {
             if let Err(why) = msg.channel_id.say(&ctx.http, reply).await {
