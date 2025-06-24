@@ -1,10 +1,10 @@
 [package]
 name = "ai-risajuu-rs"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
 dotenv = "0.15.0"
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "macros"] }
 serenity = "0.12"
-pyo3 = { version = "0.25.1", features = ["auto-initialize"] }
+gemini-rs = "2.0.0"
