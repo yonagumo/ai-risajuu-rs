@@ -1,8 +1,9 @@
 use std::error::Error;
 
-use futures::channel::mpsc::UnboundedReceiver;
+use futures::{Stream, channel::mpsc::UnboundedReceiver};
 
 use futures::StreamExt;
+use gemini_rs::types::Response;
 use gemini_rs::{
     Client, Error as GeminiError,
     types::{
@@ -56,16 +57,15 @@ impl Risajuu {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         while let Some((ctx, msg)) = self.receiver.next().await {
-            let response = self.chat(&msg.content).await;
-            let reply = match response {
-                Err(why) => Some(format!("Geminiのエラーじゅう。\n{}", why)),
-                Ok(response) => response,
-            };
-
-            if let Some(text) = reply {
-                let mut iter = text.split('\n').filter(|line| !line.is_empty());
-                while let Some(chunk) = iter.next() {
-                    if let Err(why) = msg.channel_id.say(&ctx.http, chunk).await {
+            let mut stream = self.chat(&msg.content).await?;
+            while let Some(chunk) = stream.next().await {
+                let reply = match chunk {
+                    Ok(res) => res.candidates[0].content.parts[0].text.clone(),
+                    Err(why) => Some(format!("Geminiのエラーじゅう。\n{}", why)),
+                };
+                println!("{:?}", reply);
+                if let Some(text) = reply {
+                    if let Err(why) = msg.channel_id.say(&ctx.http, text).await {
                         println!("Error (say): {:?}", why);
                     }
                 }
@@ -74,26 +74,35 @@ impl Risajuu {
         Ok(())
     }
 
-    async fn chat(&mut self, msg: &str) -> Result<Option<String>, GeminiError> {
-        let mut request = self.gemini.generate_content(&self.model_name);
+    async fn chat(&mut self, msg: &str) -> Result<impl Stream<Item = Result<Response, GeminiError>>, Box<dyn Error>> {
+        let mut request = self.gemini.stream_generate_content(&self.model_name);
         request.safety_settings(self.safety_settings.clone());
         request.system_instruction(&self.system_instruction);
         request.contents(self.history.clone());
         request.message(msg);
-        let response = request.await?;
-        let response = response.candidates[0].content.parts[0].text.clone();
+        let stream = request.stream().await?;
         let user_content = Content {
             role: Role::User,
             parts: vec![Part::text(msg)],
         };
         self.history.push(user_content);
-        if let Some(text) = &response {
-            let model_content = Content {
-                role: Role::Model,
-                parts: vec![Part::text(text)],
+
+        let stream = stream.map(|chunk| {
+            match &chunk {
+                Ok(response) => {
+                    if let Some(text) = &response.candidates[0].content.parts[0].text {
+                        let model_content = Content {
+                            role: Role::Model,
+                            parts: vec![Part::text(text)],
+                        };
+                        self.history.push(model_content);
+                    };
+                }
+                Err(why) => eprintln!("Error (stream): {:?}", why),
             };
-            self.history.push(model_content);
-        };
-        Ok(response)
+            chunk
+        });
+
+        Ok(stream)
     }
 }
