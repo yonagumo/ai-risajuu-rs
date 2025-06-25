@@ -1,6 +1,6 @@
 [package]
 name = "ai-risajuu-rs"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 
 [dependencies]
@@ -8,3 +8,4 @@ dotenv = "0.15.0"
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "macros"] }
 serenity = "0.12"
 gemini-rs = "2.0.0"
+futures = "0.3.31"

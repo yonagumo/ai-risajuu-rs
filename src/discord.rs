@@ -1,3 +1,4 @@
+use futures::channel::mpsc::UnboundedSender;
 use std::error::Error;
 
 use serenity::{
@@ -6,16 +7,16 @@ use serenity::{
     prelude::*,
 };
 
-use gemini_rs;
+type Sender = UnboundedSender<(Context, Message)>;
 
 pub struct Discord {
-    client: serenity::Client,
+    client: Client,
 }
 
 impl Discord {
-    pub async fn new(token: &str, api_key: &str) -> Result<Discord, Box<dyn Error>> {
+    pub async fn new(token: &str, sender: Sender) -> Result<Discord, Box<dyn Error>> {
         let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
-        let handler = Handler::new(api_key);
+        let handler = Handler::new(sender);
         let client = Client::builder(&token, intents).event_handler(handler).await?;
         Ok(Discord { client })
     }
@@ -27,13 +28,12 @@ impl Discord {
 }
 
 struct Handler {
-    gemini: gemini_rs::Client,
+    sender: Sender,
 }
 
 impl Handler {
-    fn new(api_key: &str) -> Handler {
-        let gemini = gemini_rs::Client::new(api_key);
-        Handler { gemini }
+    fn new(sender: Sender) -> Handler {
+        Handler { sender }
     }
 }
 
@@ -53,18 +53,6 @@ impl EventHandler for Handler {
             return;
         }
 
-        // let reply = "RustからHello, worldじゅう！";
-        let mut route = self.gemini.generate_content("gemini-2.5-flash");
-        route.message(&msg.content);
-        let text = match route.await {
-            Err(why) => Some(format!("Geminiのエラーじゅう。\n{}", why)),
-            Ok(response) => response.candidates[0].content.parts[0].text.clone(),
-        };
-
-        if let Some(reply) = text {
-            if let Err(why) = msg.channel_id.say(&ctx.http, reply).await {
-                println!("Error (say): {:?}", why);
-            }
-        }
+        self.sender.unbounded_send((ctx, msg)).unwrap();
     }
 }
