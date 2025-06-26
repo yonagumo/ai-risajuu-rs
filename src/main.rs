@@ -1,16 +1,12 @@
 use dotenv::dotenv;
 use futures::{channel::mpsc, try_join};
-use std::env;
-use std::error::Error;
-use std::fs::File;
-use std::io;
-use std::io::Read;
+use std::{env, error::Error, fs::File, io, io::Read};
 
 mod discord;
 mod risajuu;
 
 use discord::Discord;
-use risajuu::Risajuu;
+use risajuu::{ChatSettings, Risajuu};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -21,10 +17,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let token = env::var("DISCORD_TOKEN")?;
     let mut discord = Discord::new(&token, sender).await?;
 
-    let api_key = env::var("GOOGLE_API_KEY")?;
-    let model_name = env::var("AI_MODEL")?;
-    let system_instruction = load_text("src/system_instruction.md")?;
-    let mut risajuu = Risajuu::new(&api_key, receiver, model_name, system_instruction);
+    let settings = ChatSettings {
+        api_key: env::var("GOOGLE_API_KEY")?,
+        model_name: env::var("AI_MODEL")?,
+        system_instruction: load_text("src/system_instruction.md")?,
+    };
+    let mut risajuu = Risajuu::new(receiver, settings);
 
     try_join!(discord.run(), risajuu.run())?;
     Ok(())

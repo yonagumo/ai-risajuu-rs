@@ -49,7 +49,7 @@ impl EventHandler for Handler {
         }
 
         if let Err(why) = msg.channel_id.broadcast_typing(&ctx.http).await {
-            println!("Error (broadcast_typing): {:?}", why);
+            eprintln!("Error (broadcast_typing): {:?}", why);
             return;
         }
 
