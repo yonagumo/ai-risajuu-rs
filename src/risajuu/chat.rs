@@ -67,13 +67,8 @@ impl Chat {
         let stream = stream.map(|chunk| {
             match &chunk {
                 Ok(response) => {
-                    if let Some(text) = &response.candidates[0].content.parts[0].text {
-                        let model_content = Content {
-                            role: Role::Model,
-                            parts: vec![Part::text(text)],
-                        };
-                        self.history.push(model_content);
-                    };
+                    let model_content = response.candidates[0].content.clone();
+                    self.history.push(model_content);
                 }
                 Err(why) => eprintln!("Error (stream): {:?}", why),
             };

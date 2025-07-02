@@ -15,7 +15,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (sender, receiver) = mpsc::unbounded();
 
     let token = env::var("DISCORD_TOKEN")?;
-    let mut discord = Discord::new(&token, sender).await?;
+    let targets_str = env::var("TARGET_CHANNEL")?;
+    let mut discord = Discord::new(&token, sender, &targets_str).await?;
 
     let settings = ChatSettings {
         api_key: env::var("GOOGLE_API_KEY")?,
