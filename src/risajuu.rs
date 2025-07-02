@@ -1,32 +1,61 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use futures::{StreamExt, channel::mpsc::UnboundedReceiver};
 
-use serenity::{client::Context, model::channel::Message};
+use serenity::{
+    client::Context,
+    model::{
+        channel::Message,
+        id::{GuildId, UserId},
+    },
+};
+
+use crate::discord::{DiscordEvent, PlaceIdentifier};
 
 mod chat;
 use chat::Chat;
 pub use chat::ChatSettings;
 
-type Receiver = UnboundedReceiver<(Context, Message)>;
+type Receiver = UnboundedReceiver<DiscordEvent>;
+
+#[derive(Hash, PartialEq, Eq, Clone)]
+enum InstanceIdentifier {
+    DM(UserId),
+    Server(GuildId),
+}
 
 pub struct Risajuu {
     receiver: Receiver,
-    chat: Chat,
+    chats: HashMap<InstanceIdentifier, Chat>,
+    settings: ChatSettings,
 }
 
 impl Risajuu {
     pub fn new(receiver: Receiver, settings: ChatSettings) -> Risajuu {
         Risajuu {
             receiver,
-            chat: Chat::new(settings),
+            chats: HashMap::new(),
+            settings,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let mut buf = String::new();
-        while let Some((ctx, msg)) = self.receiver.next().await {
-            let mut stream = self.chat.send_message(&msg.content).await?;
+        while let Some(event) = self.receiver.next().await {
+            let instance_key = match event.place {
+                PlaceIdentifier::DM(_, user_id) => InstanceIdentifier::DM(user_id),
+                PlaceIdentifier::Server(guild_id, _, _) => InstanceIdentifier::Server(guild_id),
+            };
+            let instance = match self.chats.get_mut(&instance_key) {
+                Some(chat) => chat,
+                None => {
+                    self.chats.insert(instance_key.clone(), Chat::new(self.settings.clone()));
+                    self.chats.get_mut(&instance_key).unwrap()
+                }
+            };
+
+            let mut stream = instance.send_message(&event.msg.content).await?;
             while let Some(chunk) = stream.next().await {
                 let reply = match chunk {
                     Ok(res) => res.candidates[0].content.parts[0].text.clone(),
@@ -37,15 +66,15 @@ impl Risajuu {
                     buf.push_str(&text);
                     let v: Vec<&str> = buf.rsplitn(2, '\n').collect();
                     if let [s1, s2] = v[..] {
-                        say(&ctx, &msg, s2).await;
+                        say(&event.ctx, &event.msg, s2).await;
                         buf = s1.to_string();
                     }
                 } else {
-                    say(&ctx, &msg, &mut buf).await;
+                    say(&event.ctx, &event.msg, &mut buf).await;
                     buf.clear();
                 }
             }
-            say(&ctx, &msg, &mut buf).await;
+            say(&event.ctx, &event.msg, &mut buf).await;
             buf.clear();
         }
         Ok(())

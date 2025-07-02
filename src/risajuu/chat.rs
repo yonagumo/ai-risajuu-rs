@@ -18,6 +18,7 @@ const HARM_CATEGORIES: [HarmCategory; 5] = [
     HarmCategoryCivicIntegrity,
 ];
 
+#[derive(Debug, Clone)]
 pub struct ChatSettings {
     pub api_key: String,
     pub model_name: String,

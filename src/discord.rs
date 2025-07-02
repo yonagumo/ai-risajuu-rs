@@ -3,15 +3,14 @@ use std::error::Error;
 
 use serenity::{
     async_trait,
-    model::{
-        channel::Message,
-        gateway::Ready,
-        id::{ChannelId, GuildId, UserId},
-    },
+    model::{channel::Message, gateway::Ready},
     prelude::*,
 };
 
-type Sender = UnboundedSender<(Context, Message)>;
+pub mod types;
+pub use types::*;
+
+type Sender = UnboundedSender<DiscordEvent>;
 
 pub struct Discord {
     client: Client,
@@ -37,39 +36,6 @@ impl Discord {
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         self.client.start().await?;
         Ok(())
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-enum PlaceIdentifier {
-    DM(ChannelId, UserId),
-    Server(GuildId, Option<ChannelId>, ChannelId),
-}
-
-#[allow(dead_code)]
-impl PlaceIdentifier {
-    async fn new(ctx: &Context, msg: &Message) -> PlaceIdentifier {
-        if let Some(guild_id) = msg.guild_id {
-            let category = msg.category_id(&ctx.http).await;
-            Self::Server(guild_id, category, msg.channel_id)
-        } else {
-            PlaceIdentifier::DM(msg.channel_id, msg.author.id)
-        }
-    }
-
-    fn is_dm(&self) -> bool {
-        match self {
-            Self::DM(_, _) => true,
-            _ => false,
-        }
-    }
-
-    fn is_server(&self) -> bool {
-        match self {
-            Self::Server(_, _, _) => true,
-            _ => false,
-        }
     }
 }
 
@@ -112,7 +78,8 @@ impl EventHandler for Handler {
                 return;
             }
 
-            self.sender.unbounded_send((ctx, msg)).unwrap();
+            let event = DiscordEvent { ctx, msg, place };
+            self.sender.unbounded_send(event).unwrap();
         }
     }
 }
