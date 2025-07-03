@@ -52,6 +52,10 @@ impl Chat {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.history.clear();
+    }
+
     pub async fn send_message(&mut self, msg: &str) -> Result<impl Stream<Item = Result<Response, GeminiError>>, Box<dyn Error>> {
         let mut request = self.gemini.stream_generate_content(&self.model_name);
         request.safety_settings(self.safety_settings.clone());

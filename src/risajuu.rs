@@ -41,7 +41,6 @@ impl Risajuu {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut buf = String::new();
         while let Some(event) = self.receiver.next().await {
             let instance_key = match event.place {
                 PlaceIdentifier::DM(_, user_id) => InstanceIdentifier::DM(user_id),
@@ -55,30 +54,41 @@ impl Risajuu {
                 }
             };
 
-            let mut stream = instance.send_message(&event.msg.content).await?;
-            while let Some(chunk) = stream.next().await {
-                let reply = match chunk {
-                    Ok(res) => res.candidates[0].content.parts[0].text.clone(),
-                    Err(why) => Some(format!("\nGeminiのエラーじゅう。\n{}", why)),
-                };
-                //println!("{:?}", reply);
-                if let Some(text) = reply {
-                    buf.push_str(&text);
-                    let v: Vec<&str> = buf.rsplitn(2, '\n').collect();
-                    if let [s1, s2] = v[..] {
-                        say(&event.ctx, &event.msg, s2).await;
-                        buf = s1.to_string();
-                    }
-                } else {
-                    say(&event.ctx, &event.msg, &mut buf).await;
-                    buf.clear();
-                }
+            if event.msg.content.ends_with("リセット") {
+                instance.reset();
+                say(&event.ctx, &event.msg, "履歴をリセットしたじゅう！").await;
+            } else {
+                talk(instance, event).await?;
             }
-            say(&event.ctx, &event.msg, &mut buf).await;
-            buf.clear();
         }
         Ok(())
     }
+}
+
+async fn talk(instance: &mut Chat, event: DiscordEvent) -> Result<(), Box<dyn Error>> {
+    let mut stream = instance.send_message(&event.msg.content).await?;
+    let mut buf = String::new();
+    while let Some(chunk) = stream.next().await {
+        let reply = match chunk {
+            Ok(res) => res.candidates[0].content.parts[0].text.clone(),
+            Err(why) => Some(format!("\nGeminiのエラーじゅう。\n{}", why)),
+        };
+        //println!("{:?}", reply);
+        if let Some(text) = reply {
+            buf.push_str(&text);
+            let v: Vec<&str> = buf.rsplitn(2, '\n').collect();
+            if let [s1, s2] = v[..] {
+                say(&event.ctx, &event.msg, s2).await;
+                buf = s1.to_string();
+            }
+        } else {
+            say(&event.ctx, &event.msg, &buf).await;
+            buf.clear();
+        }
+    }
+    say(&event.ctx, &event.msg, &buf).await;
+    buf.clear();
+    Ok(())
 }
 
 async fn say(ctx: &Context, msg: &Message, content: &str) {
