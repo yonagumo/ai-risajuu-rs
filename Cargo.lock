@@ -24,6 +24,8 @@ dependencies = [
  "dotenv",
  "futures",
  "gemini-rs",
+ "reqwest 0.12.22",
+ "serde_json",
  "serenity",
  "tokio",
 ]
@@ -525,7 +527,7 @@ checksum = "b1a238d062485ad7f78e03263846a6e8112a7f3079c07b0aba111ed3c06418c1"
 dependencies = [
  "bytes",
  "futures",
- "reqwest 0.12.20",
+ "reqwest 0.12.22",
  "secrecy 0.10.3",
  "serde",
  "serde_json",
@@ -1459,9 +1461,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.20"
+version = "0.12.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eabf4c97d9130e2bf606614eb937e86edac8292eaa6f422f995d7e8de1eb1813"
+checksum = "cbc931937e6ca3a06e3b6c0aa7841849b160a90351d6ab467a8b9b9959767531"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -1479,6 +1481,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "percent-encoding",
  "pin-project-lite",
