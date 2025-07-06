@@ -1,6 +1,7 @@
 use futures::{Stream, StreamExt};
 use std::error::Error;
 
+pub use gemini_rs::types::FileData;
 use gemini_rs::{
     Client, Error as GeminiError,
     types::{
@@ -56,18 +57,31 @@ impl Chat {
         self.history.clear();
     }
 
-    pub async fn send_message(&mut self, msg: &str) -> Result<impl Stream<Item = Result<Response, String>>, Box<dyn Error>> {
+    pub async fn send_message(
+        &mut self,
+        msg: &str,
+        files: Vec<FileData>,
+    ) -> Result<impl Stream<Item = Result<Response, String>>, Box<dyn Error>> {
         let mut request = self.gemini.stream_generate_content(&self.model_name);
         request.safety_settings(self.safety_settings.clone());
         request.system_instruction(&self.system_instruction);
-        request.contents(self.history.clone());
-        request.message(msg);
-        let stream = request.stream().await?;
-        let user_content = Content {
-            role: Role::User,
-            parts: vec![Part::text(msg)],
-        };
+
+        let mut parts = Vec::new();
+        if !msg.is_empty() {
+            parts.push(Part::text(msg));
+        }
+        for file_data in files {
+            let part = Part {
+                file_data: Some(file_data),
+                ..Part::default()
+            };
+            parts.push(part);
+        }
+        let user_content = Content { role: Role::User, parts };
         self.history.push(user_content);
+        request.contents(self.history.clone());
+        //request.message(msg);
+        let stream = request.stream().await?;
 
         let stream = stream.map(|chunk| match chunk {
             Ok(response) => {
