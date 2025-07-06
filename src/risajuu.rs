@@ -70,8 +70,8 @@ async fn talk(instance: &mut Chat, event: DiscordEvent) -> Result<(), Box<dyn Er
     let mut buf = String::new();
     while let Some(chunk) = stream.next().await {
         let reply = match chunk {
-            Ok(res) => res.candidates[0].content.parts[0].text.clone(),
-            Err(why) => Some(format!("\nGeminiのエラーじゅう。\n{}", why)),
+            Ok(res) => res.candidates[0].content.parts.get(0).and_then(|p| p.text.clone()),
+            Err(err) => Some(err),
         };
         //println!("{:?}", reply);
         if let Some(text) = reply {
@@ -87,7 +87,6 @@ async fn talk(instance: &mut Chat, event: DiscordEvent) -> Result<(), Box<dyn Er
         }
     }
     say(&event.ctx, &event.msg, &buf).await;
-    buf.clear();
     Ok(())
 }
 
